@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<style type="text/css">
+  @media screen {
+    .page {
+      display: none !important;
+    }
+  }
+  @media print {
+    .hidden-print {
+      display: none !important;
+    }
+    .page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+      margin: auto auto;
+      page-break-after: always;
+    }
+    .label-container {
+      display:block;
+    }
+    
+    .label {
+      width: 100mm;
+      margin-left: auto;
+      margin-right: auto;
+      height:35mm;
+    }
+    
+    table {
+      padding: 1mm;
+    }
+    
+    table tr td:last-child {
+      font-weight: bold;
+    }
+    
+    .center-page-spacer {
+      display: block;
+      text-align: center;
+      margin-top: 15mm;
+      margin-bottom: 15mm;
+      height: 1mm;
+    }
+    
+    .foldlines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      font-size: 2mm;
+    }
+    
+    .qrcode {
+      width: 30mm;
+    }
+  }
+  
+  html {
+    font-family: Arial, sans-serif;
+  }
+  
+  body {
+    font-size: 12pt;
+    margin: 0;
+  }
+  
+  .hidden-print {
+    padding:10px; 
+    vertical-align:top;
+    
+    h3 {
+      margin:0;
+    }
+  }
+  
+</style>
+<title>Filament sample envelope</title>
+</head>
+<body>
+
+<div class="hidden-print">
+  <h3>Filament sample envelope generation</h3>
+  
+  <p>Your name:<br><input type="text" style="width:200px" id="sender_name" value="" /></p>
+  <p>Manufacturer:<br><input type="text" style="width:200px" id="manufacturer" value="" /></p>
+  <p>Filament type:<br><input type="text" style="width:200px" id="filament_type" value="" /></p>
+  <p>Filament Name (one per line):<br><textarea style="width:300px; height:200px" id="filament_name"></textarea></p>
+  <p><button onclick="printpages();">Print</button></p>
+  <p><strong>Important:</strong> Make sure to set "Two-sided printing" or "Duplex" to <em>off</em>.</p>
+</div>
+
+</body>
+  <script src="js/qrious.js"></script>
+  <script>
+    
+    var qrdata = [];
+    var pagetitle = 'Filament Sample Labels'; //standard page title to switch back to after printing
+    var filename = '';
+    
+    function prepdata() {
+      var sender_name = document.getElementById('sender_name').value.trim();
+      var manufacturer = document.getElementById('manufacturer').value.trim();
+      var filament_type = document.getElementById('filament_type').value.trim();
+      var filament_name = document.getElementById('filament_name').value.split('\n');
+      var isodate = new Date().toISOString().split('T')[0];
+      
+      // Set filaname for the PDF title
+      filename = `Filament Sample Envelope - ${manufacturer} - ${filament_type} - ${isodate}.pdf`;
+      
+      //Clear previous pages
+      qrdata = [];
+      
+      // For each filament name, call addpage()
+      filament_name.forEach(function(name, index) {
+        if (name.trim() !== '') {
+          addpage(index, sender_name, manufacturer, filament_type, name.trim(), isodate);
+          qrdata[index] = `FilamentColors v0\n${name.trim()}\n${filament_type}\n${manufacturer}\n${sender_name}\n${isodate}`;
+        }
+      });
+      generateQRCode(document.querySelector('canvas.qrcode'));
+      
+    }
+
+    function printpages() {
+      // Remove existing pages if re-ran
+      document.querySelectorAll('.page').forEach(e => e.remove());
+      // Prepare data and generate pages
+      prepdata();
+      // Change window title in case printing to PDF
+      document.title = filename;
+      // Run in-browser print
+      window.print();
+      
+      // Reset title after printing
+      document.title = pagetitle;
+    }
+    
+    function addpage(number, sender_name, manufacturer, filament_type, filament_name, isodate) {
+      var newpage = document.createElement('div');
+      newpage.className = 'page';
+      // Make 2 copies of the data on the same page and centered so it is always visible regardless of how paper is folded
+      newpage.innerHTML = `
+        <svg class="foldlines">
+          <line x1="0%"  y1="50%" x2="50%"  y2="0%"  stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
+          <line x1="50%" y1="0%"  x2="100%" y2="50%" stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
+          <line x1="0%"  y1="50%" x2="100%" y2="50%" stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
+          <text x="40%" y="5%" text-anchor="middle" dominant-baseline="central" font-size="2mm" fill="black">STAPLE</text>
+          <text x="60%" y="5%" text-anchor="middle" dominant-baseline="central" font-size="2mm" fill="black">STAPLE</text>
+        
+        </svg>
+        <div class="label-container">
+          <table class="label">
+            <tr><td rowspan=5><canvas class="qrcode" qrcode_id="${number}"></canvas></td><td>Name:</td><td>${filament_name}</td></tr>
+            <tr><td>Type:</td><td>${filament_type}</td></tr>
+            <tr><td>Mfg:</td><td>${manufacturer}</td></tr>
+            <tr><td>Sender:</td><td>${sender_name}</td></tr>
+            <tr><td>Date:</td><td>${isodate}</td></tr>
+          </table>
+          <div class="center-page-spacer">1) Fold here 2) Fold one triangle flap and insert filament<br>3) Fold second triangle flap 4) Fix triangle flaps together with staple or tape</div>
+          <div class="label"></div>
+        </div>
+      `;
+      document.body.appendChild(newpage);
+    }
+
+  function generateQRCode(canvas) {
+    var canvases = document.querySelectorAll('canvas.qrcode');
+    canvases.forEach(function(canvas) {
+      var data = utf32to8(qrdata[canvas.getAttribute('qrcode_id')]);
+      if (data) {
+        new QRious({
+          element: canvas,
+          value: data,
+          padding: 25,
+          size: 300,
+          level: 'M'
+        });
+      }
+    });
+  }
+  
+  // Convert UTF-32 string to UTF-8 ensure proper encoding
+  // https://github.com/neocotic/qrious/issues/62#issuecomment-1268977789
+  function utf32to8 (str) {
+	var out, i, len, c;
+	out = "";
+	len = str.length;
+	var codeAt = str.codePointAt || str.charCodeAt;    // IE 11 doesn't have codePointAt
+	for (i = 0; i < len; i++) {
+		c = codeAt.call(str, i);
+		if (c >= 0x10000) {
+			out += String.fromCharCode(0xF0 | ((c >> 18) & 0x07));
+			out += String.fromCharCode(0x80 | ((c >> 12) & 0x3F));
+			out += String.fromCharCode(0x80 | ((c >>  6) & 0x3F));
+			out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
+		}
+		else if (c >= 0x0800) {
+			out += String.fromCharCode(0xE0 | ((c >> 12) & 0x0F));
+			out += String.fromCharCode(0x80 | ((c >>  6) & 0x3F));
+			out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
+		}
+		else if (c >= 0x0080) {
+			out += String.fromCharCode(0xC0 | ((c >> 6) & 0x1F));
+			out += String.fromCharCode(0x80 | ((c >> 0) & 0x3F));
+		}
+		else
+			out += str.charAt(i);
+
+
+		if (str.charCodeAt(i) != c)
+			i++;
+	}
+
+	return out;
+}
+</script>
+</html>
