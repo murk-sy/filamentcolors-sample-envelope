@@ -13,9 +13,8 @@ The goal is to:
 
 - Can run locally, make sure you have qrious.js in the correct path
 - Paper-size agnostic (though you should probably use A4 and US Letter)
+- Filament samples can be bulk dried without unpacking (though may need to be packed for transport)
 - QR code uses newline delimited data
-
-
 
 
 ## QR code
