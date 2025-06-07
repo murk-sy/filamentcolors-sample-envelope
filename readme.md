@@ -1,5 +1,7 @@
 # FilamentColors envelope generator
 
+**Open directly on Github without downloading:** https://murk-sy.github.io/filamentcolors-sample-envelope/sample-envelope.html
+
 This was developed as a hopefully easier, simpler, and more accessible way to pack filament samples to send in to FilamentColors.xyz.
 
 The goal is to:
