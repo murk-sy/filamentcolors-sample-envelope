@@ -82,7 +82,7 @@
   }
   
 </style>
-<title>Filament sample envelope</title>
+<title>Filament sample envelopes</title>
 </head>
 <body>
 
@@ -93,6 +93,7 @@
   <p>Manufacturer:<br><input type="text" style="width:200px" id="manufacturer" value="" /></p>
   <p>Filament type:<br><input type="text" style="width:200px" id="filament_type" value="" /></p>
   <p>Filament Name (one per line):<br><textarea style="width:300px; height:200px" id="filament_name"></textarea></p>
+  <p>Show folding lines: <input type="checkbox" id="show_foldlines" checked /></p>
   <p><button onclick="printpages();">Print</button></p>
   <p><strong>Important:</strong> Make sure to set "Two-sided printing" or "Duplex" and "Margins" to <em>Off</em> or <em>None</em>.</p>
 </div>
@@ -102,7 +103,7 @@
   <script>
     
     var qrdata = [];
-    var pagetitle = 'Filament Sample Labels'; //standard page title to switch back to after printing
+    var pagetitle = 'Filament sample envelopes'; //standard page title to switch back to after printing
     var filename = '';
     
     function prepdata() {
@@ -110,6 +111,7 @@
       var manufacturer = document.getElementById('manufacturer').value.trim();
       var filament_type = document.getElementById('filament_type').value.trim();
       var filament_name = document.getElementById('filament_name').value.split('\n');
+      var show_foldlines = document.getElementById('show_foldlines').checked;
       var isodate = new Date().toISOString().split('T')[0];
       
       // Set filaname for the PDF title
@@ -121,7 +123,7 @@
       // For each filament name, call addpage()
       filament_name.forEach(function(name, index) {
         if (name.trim() !== '') {
-          addpage(index, sender_name, manufacturer, filament_type, name.trim(), isodate);
+          addpage(index, sender_name, manufacturer, filament_type, name.trim(), isodate, show_foldlines);
           qrdata[index] = `FilamentColors v0\n${name.trim()}\n${filament_type}\n${manufacturer}\n${sender_name}\n${isodate}`;
         }
       });
@@ -143,28 +145,38 @@
       document.title = pagetitle;
     }
     
-    function addpage(number, sender_name, manufacturer, filament_type, filament_name, isodate) {
+    function addpage(number, sender_name, manufacturer, filament_type, filament_name, isodate, show_foldlines) {
       var newpage = document.createElement('div');
       newpage.className = 'page';
-      // Make 2 copies of the data on the same page and centered so it is always visible regardless of how paper is folded
+      
+      var foldlines_html = '';
+      var foldlines_text = '';
+      
+      if (show_foldlines) {
+        foldlines_html = `
+          <svg class="foldlines">
+            <line x1="0%"  y1="50%" x2="50%"  y2="0%"  stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
+            <line x1="50%" y1="0%"  x2="100%" y2="50%" stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
+            <line x1="0%"  y1="50%" x2="100%" y2="50%" stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
+            <text x="40%" y="5%" text-anchor="middle" dominant-baseline="central" font-size="2mm" fill="black">STAPLE</text>
+            <text x="60%" y="5%" text-anchor="middle" dominant-baseline="central" font-size="2mm" fill="black">STAPLE</text>
+          </svg>
+          `;
+
+        foldlines_text = "1) Fold here 2) Fold one triangle flap and insert filament<br>3) Fold second triangle flap 4) Fix triangle flaps together with staple or tape";
+      }
+      
       newpage.innerHTML = `
-        <svg class="foldlines">
-          <line x1="0%"  y1="50%" x2="50%"  y2="0%"  stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
-          <line x1="50%" y1="0%"  x2="100%" y2="50%" stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
-          <line x1="0%"  y1="50%" x2="100%" y2="50%" stroke="black" stroke-width="0.6mm" stroke-dasharray="2,10"/>
-          <text x="40%" y="5%" text-anchor="middle" dominant-baseline="central" font-size="2mm" fill="black">STAPLE</text>
-          <text x="60%" y="5%" text-anchor="middle" dominant-baseline="central" font-size="2mm" fill="black">STAPLE</text>
-        
-        </svg>
+        ${foldlines_html}
         <div class="label-container">
           <table class="label">
             <tr><td rowspan=5><canvas class="qrcode" qrcode_id="${number}"></canvas></td><td>Name:</td><td>${filament_name}</td></tr>
             <tr><td>Type:</td><td>${filament_type}</td></tr>
             <tr><td>Mfg:</td><td>${manufacturer}</td></tr>
-            <tr><td>Sender:</td><td>${sender_name}</td></tr>
+            <tr><td>By:</td><td>${sender_name}</td></tr>
             <tr><td>Date:</td><td>${isodate}</td></tr>
           </table>
-          <div class="center-page-spacer">1) Fold here 2) Fold one triangle flap and insert filament<br>3) Fold second triangle flap 4) Fix triangle flaps together with staple or tape</div>
+          <div class="center-page-spacer">${foldlines_text}</div>
           <div class="label"></div>
         </div>
       `;
