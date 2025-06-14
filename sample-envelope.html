@@ -3,7 +3,10 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <style type="text/css">
   @media screen {
-    .page {
+    .envelopes-page {
+      display: none !important;
+    }
+    .labels-page {
       display: none !important;
     }
   }
@@ -11,7 +14,10 @@
     .hidden-print {
       display: none !important;
     }
-    .page {
+    @page {
+      margin: 0 mm;
+    }
+    .envelopes-page {
       position: relative;
       width: 100vw;
       height: 100vh;
@@ -22,26 +28,55 @@
       margin: auto auto;
       page-break-after: always;
     }
-    .label-container {
+    .envelopes-label-container {
       display:block;
     }
     
-    .label {
+    .envelopes-label {
       width: 100mm;
       margin-left: auto;
       margin-right: auto;
       height:35mm;
     }
     
+    .labels-page {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      justify-content: center;
+      align-items: center;
+      box-sizing: border-box;
+      padding: 15mm;
+      page-break-after: always;
+    }
+    
+    .labels-container {
+      display:inline-flex;
+      box-sizing: border-box;
+      border: 0.2mm solid #999;
+    }
+    
+    .labels {
+      width: 85mm;
+      height:30mm;
+      max-height:30mm;
+    }
+    
     table {
-      padding: 1mm;
+      padding: 0.5mm;
+    }
+    
+    table tr td:nth-last-child(2) {
+      font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Noto Sans Symbols', 'Symbola', monospace;
+      color: black;
+      font-size: 0.75em;
     }
     
     table tr td:last-child {
-      font-weight: bold;
+      
     }
     
-    .center-page-spacer {
+    .envelope-center-page-spacer {
       display: block;
       text-align: center;
       margin-top: 15mm;
@@ -82,18 +117,24 @@
   }
   
 </style>
-<title>Filament sample envelopes</title>
+
+<title>Filament sample tagging</title>
 </head>
 <body>
 
 <div class="hidden-print">
-  <h3>Filament sample envelope generation</h3>
+  <h3>Filament sample tagging</h3>
   
   <p>Your name:<br><input type="text" style="width:200px" id="sender_name" value="" /></p>
   <p>Manufacturer:<br><input type="text" style="width:200px" id="manufacturer" value="" /></p>
   <p>Filament type:<br><input type="text" style="width:200px" id="filament_type" value="" /></p>
   <p>Filament Name (one per line):<br><textarea style="width:300px; height:200px" id="filament_name"></textarea></p>
-  <p>Show folding lines: <input type="checkbox" id="show_foldlines" checked /></p>
+  <p>Generate: <select id="output_type">
+    <option value="envelopes" selected>Envelopes</option>
+    <option value="labels">Labels</option>
+    </select>
+  </p>
+  <p>Show folding lines (envelopes): <input type="checkbox" id="show_foldlines" checked /></p>
   <p><button onclick="printpages();">Print</button></p>
   <p><strong>Important:</strong> Make sure to set "Two-sided printing" or "Duplex" and "Margins" to <em>Off</em> or <em>None</em>.</p>
 </div>
@@ -103,8 +144,9 @@
   <script>
     
     var qrdata = [];
-    var pagetitle = 'Filament sample envelopes'; //standard page title to switch back to after printing
+    var pagetitle = 'Filament sample tagging'; //standard page title to switch back to after printing
     var filename = '';
+    var labels_per_page = 14; // Number of labels per page, used for printing labels
     
     function prepdata() {
       var sender_name = document.getElementById('sender_name').value.trim();
@@ -114,16 +156,34 @@
       var show_foldlines = document.getElementById('show_foldlines').checked;
       var isodate = new Date().toISOString().split('T')[0];
       
-      // Set filaname for the PDF title
-      filename = `Filament Sample Envelope - ${manufacturer} - ${filament_type} - ${isodate}.pdf`;
+      var output_type = document.getElementById('output_type').value;
       
-      //Clear previous pages
+      // Set filaname for the PDF title
+      filename = `Filament sample ${output_type} - ${manufacturer} - ${filament_type} - ${isodate}.pdf`;
+      
+      //Clear previous QR data
       qrdata = [];
       
-      // For each filament name, call addpage()
+      // Pre-prepare pages for labels based on amount of filament names
+      if (output_type === 'labels') {
+        var labels_count = filament_name.length;
+        var pages_count = Math.ceil(labels_count / labels_per_page);
+        for (var page_current = 0; page_current < pages_count; page_current++) {
+          var newpage = document.createElement('div');
+          newpage.className = 'labels-page';
+          newpage.id = `label_page_${page_current}`;
+          document.body.appendChild(newpage);
+        }
+      }
+      
+      // For each filament name call functions for each label/envelope      
       filament_name.forEach(function(name, index) {
         if (name.trim() !== '') {
-          addpage(index, sender_name, manufacturer, filament_type, name.trim(), isodate, show_foldlines);
+          if (output_type === 'envelopes') {
+            add_envelope_page(index, sender_name, manufacturer, filament_type, name.trim(), isodate, show_foldlines);
+          } if (output_type === 'labels') {
+            add_label(index, sender_name, manufacturer, filament_type, name.trim(), isodate);
+          }
           qrdata[index] = `FilamentColors v0\n${name.trim()}\n${filament_type}\n${manufacturer}\n${sender_name}\n${isodate}`;
         }
       });
@@ -133,11 +193,13 @@
 
     function printpages() {
       // Remove existing pages if re-ran
-      document.querySelectorAll('.page').forEach(e => e.remove());
+      document.querySelectorAll('.envelopes-page').forEach(e => e.remove());
+      document.querySelectorAll('.labels-page').forEach(e => e.remove());
       // Prepare data and generate pages
       prepdata();
       // Change window title in case printing to PDF
       document.title = filename;
+      
       // Run in-browser print
       window.print();
       
@@ -145,9 +207,9 @@
       document.title = pagetitle;
     }
     
-    function addpage(number, sender_name, manufacturer, filament_type, filament_name, isodate, show_foldlines) {
+    function add_envelope_page(number, sender_name, manufacturer, filament_type, filament_name, isodate, show_foldlines) {
       var newpage = document.createElement('div');
-      newpage.className = 'page';
+      newpage.className = 'envelopes-page';
       
       var foldlines_html = '';
       var foldlines_text = '';
@@ -168,19 +230,39 @@
       
       newpage.innerHTML = `
         ${foldlines_html}
-        <div class="label-container">
-          <table class="label">
-            <tr><td rowspan=5><canvas class="qrcode" qrcode_id="${number}"></canvas></td><td>Name:</td><td>${filament_name}</td></tr>
-            <tr><td>Type:</td><td>${filament_type}</td></tr>
-            <tr><td>Mfg:</td><td>${manufacturer}</td></tr>
-            <tr><td>By:</td><td>${sender_name}</td></tr>
-            <tr><td>Date:</td><td>${isodate}</td></tr>
+        <div class="envelopes-label-container">
+          <table class="envelopes-label">
+            <tr><td rowspan=5><canvas class="qrcode" qrcode_id="${number}"></canvas></td><td>✏️</td><td>${filament_name}</td></tr>
+          <tr><td>⚙️</td><td>${filament_type}</td></tr>
+          <tr><td>🏭</td><td>${manufacturer}</td></tr>
+          <tr><td>✉️</td><td>${sender_name}</td></tr>
+          <tr><td>📅</td><td>${isodate}</td></tr>
           </table>
-          <div class="center-page-spacer">${foldlines_text}</div>
-          <div class="label"></div>
+          <div class="envelope-center-page-spacer">${foldlines_text}</div>
+          <div class="envelopes-label"></div>
         </div>
       `;
       document.body.appendChild(newpage);
+    }
+    
+    function add_label(number, sender_name, manufacturer, filament_type, filament_name, isodate) {
+      var newlabel = document.createElement('div');
+      newlabel.className = 'labels-container';
+      
+      newlabel.innerHTML = `
+        <table class="labels">
+          <tr><td rowspan=5><canvas class="qrcode" qrcode_id="${number}"></canvas></td><td>✏️</td><td>${filament_name}</td></tr>
+          <tr><td>⚙️</td><td>${filament_type}</td></tr>
+          <tr><td>🏭</td><td>${manufacturer}</td></tr>
+          <tr><td>✉️</td><td>${sender_name}</td></tr>
+          <tr><td>📅</td><td>${isodate}</td></tr>
+        </table>
+      `;
+      // Calculate which page this label belongs to
+      var page_number = Math.floor(number / labels_per_page);
+      var page = document.getElementById(`label_page_${page_number}`);
+      page.appendChild(newlabel);
+      
     }
 
   function generateQRCode(canvas) {
